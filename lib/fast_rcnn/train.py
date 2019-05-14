@@ -58,18 +58,11 @@ class SolverWrapper(object):
         """
         net = self.solver.net
 
-        scale_bbox_params_faster_rcnn = (cfg.TRAIN.BBOX_REG and
+        scale_bbox_params = (cfg.TRAIN.BBOX_REG and
                              cfg.TRAIN.BBOX_NORMALIZE_TARGETS and
                              net.params.has_key('bbox_pred'))
 
-        scale_bbox_params_rfcn = (cfg.TRAIN.BBOX_REG and
-                             cfg.TRAIN.BBOX_NORMALIZE_TARGETS and
-                             net.params.has_key('rfcn_bbox'))
-
-        scale_bbox_params_rpn = (cfg.TRAIN.RPN_NORMALIZE_TARGETS and
-                                 net.params.has_key('rpn_bbox_pred'))
-
-        if scale_bbox_params_faster_rcnn:
+        if scale_bbox_params:
             # save original values
             orig_0 = net.params['bbox_pred'][0].data.copy()
             orig_1 = net.params['bbox_pred'][1].data.copy()
@@ -82,57 +75,19 @@ class SolverWrapper(object):
                     (net.params['bbox_pred'][1].data *
                      self.bbox_stds + self.bbox_means)
 
-        if scale_bbox_params_rpn:
-            rpn_orig_0 = net.params['rpn_bbox_pred'][0].data.copy()
-            rpn_orig_1 = net.params['rpn_bbox_pred'][1].data.copy()
-            num_anchor = rpn_orig_0.shape[0] / 4
-            # scale and shift with bbox reg unnormalization; then save snapshot
-            self.rpn_means = np.tile(np.asarray(cfg.TRAIN.RPN_NORMALIZE_MEANS),
-                                      num_anchor)
-            self.rpn_stds = np.tile(np.asarray(cfg.TRAIN.RPN_NORMALIZE_STDS),
-                                     num_anchor)
-            net.params['rpn_bbox_pred'][0].data[...] = \
-                (net.params['rpn_bbox_pred'][0].data *
-                 self.rpn_stds[:, np.newaxis, np.newaxis, np.newaxis])
-            net.params['rpn_bbox_pred'][1].data[...] = \
-                (net.params['rpn_bbox_pred'][1].data *
-                 self.rpn_stds + self.rpn_means)
-
-        if scale_bbox_params_rfcn:
-            # save original values
-            orig_0 = net.params['rfcn_bbox'][0].data.copy()
-            orig_1 = net.params['rfcn_bbox'][1].data.copy()
-            repeat = orig_1.shape[0] / self.bbox_means.shape[0]
-
-            # scale and shift with bbox reg unnormalization; then save snapshot
-            net.params['rfcn_bbox'][0].data[...] = \
-                    (net.params['rfcn_bbox'][0].data *
-                     np.repeat(self.bbox_stds, repeat).reshape((orig_1.shape[0], 1, 1, 1)))
-            net.params['rfcn_bbox'][1].data[...] = \
-                    (net.params['rfcn_bbox'][1].data *
-                     np.repeat(self.bbox_stds, repeat) + np.repeat(self.bbox_means, repeat))
-
         infix = ('_' + cfg.TRAIN.SNAPSHOT_INFIX
                  if cfg.TRAIN.SNAPSHOT_INFIX != '' else '')
         filename = (self.solver_param.snapshot_prefix + infix +
                     '_iter_{:d}'.format(self.solver.iter) + '.caffemodel')
         filename = os.path.join(self.output_dir, filename)
+
         net.save(str(filename))
         print 'Wrote snapshot to: {:s}'.format(filename)
 
-        if scale_bbox_params_faster_rcnn:
+        if scale_bbox_params:
             # restore net to original state
             net.params['bbox_pred'][0].data[...] = orig_0
             net.params['bbox_pred'][1].data[...] = orig_1
-        if scale_bbox_params_rfcn:
-            # restore net to original state
-            net.params['rfcn_bbox'][0].data[...] = orig_0
-            net.params['rfcn_bbox'][1].data[...] = orig_1
-        if scale_bbox_params_rpn:
-            # restore net to original state
-            net.params['rpn_bbox_pred'][0].data[...] = rpn_orig_0
-            net.params['rpn_bbox_pred'][1].data[...] = rpn_orig_1
-
         return filename
 
     def train_model(self, max_iters):

@@ -34,6 +34,7 @@ def _get_image_blob(im):
     im_orig -= cfg.PIXEL_MEANS
 
     im_shape = im_orig.shape
+    print "Image size:" + str(im_shape)
     im_size_min = np.min(im_shape[0:2])
     im_size_max = np.max(im_shape[0:2])
 
@@ -52,7 +53,6 @@ def _get_image_blob(im):
 
     # Create a blob to hold the input images
     blob = im_list_to_blob(processed_ims)
-
     return blob, np.array(im_scale_factors)
 
 def _get_rois_blob(im_rois, im_scale_factors):
@@ -119,7 +119,9 @@ def im_detect(net, im, boxes=None):
         boxes (ndarray): R x (4*K) array of predicted bounding boxes
     """
     blobs, im_scales = _get_blobs(im, boxes)
-
+    import matplotlib.pyplot as plt
+    plt.imshow(cv2.resize(im, None, None, fx=im_scales[0], fy=im_scales[0],
+                        interpolation=cv2.INTER_LINEAR))
     # When mapping from image ROIs to feature map ROIs, there's some aliasing
     # (some distinct image ROIs get mapped to the same feature ROI).
     # Here, we identify duplicate feature ROIs, so we only compute features
@@ -152,7 +154,9 @@ def im_detect(net, im, boxes=None):
     else:
         forward_kwargs['rois'] = blobs['rois'].astype(np.float32, copy=False)
     blobs_out = net.forward(**forward_kwargs)
-
+    for layer in net.blobs:
+        blobs = net.blobs[layer].data
+        np.savetxt("tmp/"+str(layer).replace('/','_')+str(blobs.shape).replace('/','_')+".txt",blobs.reshape(blobs.size,1),fmt="%6f")
     if cfg.TEST.HAS_RPN:
         assert len(im_scales) == 1, "Only single-image batch implemented"
         rois = net.blobs['rois'].data.copy()
@@ -180,7 +184,6 @@ def im_detect(net, im, boxes=None):
         # Map scores and predictions back to the original set of boxes
         scores = scores[inv_index, :]
         pred_boxes = pred_boxes[inv_index, :]
-
     return scores, pred_boxes
 
 def vis_detections(im, class_name, dets, thresh=0.3):
@@ -224,7 +227,7 @@ def apply_nms(all_boxes, thresh):
             nms_boxes[cls_ind][im_ind] = dets[keep, :].copy()
     return nms_boxes
 
-def test_net(net, imdb, max_per_image=400, thresh=-np.inf, vis=False):
+def test_net(net, imdb, max_per_image=100, thresh=0.05, vis=False):
     """Test a Fast R-CNN network on an image database."""
     num_images = len(imdb.image_index)
     # all detections are collected into:
@@ -263,10 +266,7 @@ def test_net(net, imdb, max_per_image=400, thresh=-np.inf, vis=False):
         for j in xrange(1, imdb.num_classes):
             inds = np.where(scores[:, j] > thresh)[0]
             cls_scores = scores[inds, j]
-            if cfg.TEST.AGNOSTIC:
-                cls_boxes = boxes[inds, 4:8]
-            else:
-                cls_boxes = boxes[inds, j*4:(j+1)*4]
+            cls_boxes = boxes[inds, j*4:(j+1)*4]
             cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
                 .astype(np.float32, copy=False)
             keep = nms(cls_dets, cfg.TEST.NMS)

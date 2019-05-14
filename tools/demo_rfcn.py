@@ -71,7 +71,8 @@ def vis_detections(im, class_name, dets, thresh=0.5):
 
 def demo(net, image_name):
     """Detect object classes in an image using pre-computed object proposals."""
-
+    print net
+    print image_name
     # Load the demo image
     im_file = os.path.join(cfg.DATA_DIR, 'demo', image_name)
     im = cv2.imread(im_file)
@@ -80,6 +81,8 @@ def demo(net, image_name):
     timer = Timer()
     timer.tic()
     scores, boxes = im_detect(net, im)
+    print scores
+    print boxes
     timer.toc()
     print ('Detection took {:.3f}s for '
            '{:d} object proposals').format(timer.total_time, boxes.shape[0])
@@ -131,19 +134,19 @@ if __name__ == '__main__':
         caffe.set_mode_gpu()
         caffe.set_device(args.gpu_id)
         cfg.GPU_ID = args.gpu_id
+    print prototxt
     net = caffe.Net(prototxt, caffemodel, caffe.TEST)
 
     print '\n\nLoaded network {:s}'.format(caffemodel)
-
     # Warmup on a dummy image
-    im = 128 * np.ones((300, 500, 3), dtype=np.uint8)
-    for i in xrange(2):
-        _, _= im_detect(net, im)
+    #im = 128 * np.ones((300, 500, 3), dtype=np.uint8)
+    #for i in xrange(2):
+    #      _, _= im_detect(net, im)
 
-    im_names = ['000456.jpg', '000542.jpg', '001150.jpg',
-                '001763.jpg', '004545.jpg']
+    #im_names = ['000456.jpg', '000542.jpg', '001150.jpg',
+    #            '001763.jpg', '004545.jpg']
+    im_names = ['000542.jpg']
     for im_name in im_names:
-        print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
         print 'Demo for data/demo/{}'.format(im_name)
         demo(net, im_name)
 

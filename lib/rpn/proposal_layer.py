@@ -61,7 +61,8 @@ class ProposalLayer(caffe.Layer):
         assert bottom[0].data.shape[0] == 1, \
             'Only single item batches are supported'
 
-        cfg_key = str('TRAIN' if self.phase == 0 else 'TEST') # either 'TRAIN' or 'TEST'
+        #cfg_key = str(self.phase) # either 'TRAIN' or 'TEST'
+        cfg_key = str('TRAIN' if self.phase == 0 else 'TEST')
         pre_nms_topN  = cfg[cfg_key].RPN_PRE_NMS_TOP_N
         post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
         nms_thresh    = cfg[cfg_key].RPN_NMS_THRESH
@@ -110,9 +111,6 @@ class ProposalLayer(caffe.Layer):
         # reshape to (1 * H * W * A, 4) where rows are ordered by (h, w, a)
         # in slowest to fastest order
         bbox_deltas = bbox_deltas.transpose((0, 2, 3, 1)).reshape((-1, 4))
-        if cfg_key == 'TRAIN' and cfg.TRAIN.RPN_NORMALIZE_TARGETS:
-            bbox_deltas *= cfg.TRAIN.RPN_NORMALIZE_STDS
-            bbox_deltas += cfg.TRAIN.RPN_NORMALIZE_MEANS
 
         # Same story for the scores:
         #
@@ -155,7 +153,6 @@ class ProposalLayer(caffe.Layer):
         # batch inds are 0
         batch_inds = np.zeros((proposals.shape[0], 1), dtype=np.float32)
         blob = np.hstack((batch_inds, proposals.astype(np.float32, copy=False)))
-        # print blob.shape
         top[0].reshape(*(blob.shape))
         top[0].data[...] = blob
 

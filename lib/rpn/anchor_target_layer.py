@@ -24,7 +24,7 @@ class AnchorTargetLayer(caffe.Layer):
     """
 
     def setup(self, bottom, top):
-        layer_params = yaml.load(self.param_str)
+        layer_params = yaml.load(self.param_str_)
         anchor_scales = layer_params.get('scales', (8, 16, 32))
         self._anchors = generate_anchors(scales=np.array(anchor_scales))
         self._num_anchors = self._anchors.shape[0]
@@ -129,7 +129,6 @@ class AnchorTargetLayer(caffe.Layer):
 
         # overlaps between the anchors and the gt boxes
         # overlaps (ex, gt)
-        gt_boxes = gt_boxes.reshape(gt_boxes.shape[0], gt_boxes.shape[1])
         overlaps = bbox_overlaps(
             np.ascontiguousarray(anchors, dtype=np.float),
             np.ascontiguousarray(gt_boxes, dtype=np.float))
@@ -279,10 +278,4 @@ def _compute_targets(ex_rois, gt_rois):
     assert ex_rois.shape[1] == 4
     assert gt_rois.shape[1] == 5
 
-    targets = bbox_transform(ex_rois, gt_rois[:, :4]).astype(np.float32, copy=False)
-    if cfg.TRAIN.RPN_NORMALIZE_TARGETS:
-        assert cfg.TRAIN.RPN_NORMALIZE_MEANS is not None
-        assert cfg.TRAIN.RPN_NORMALIZE_STDS is not None
-        targets -= cfg.TRAIN.RPN_NORMALIZE_MEANS
-        targets /= cfg.TRAIN.RPN_NORMALIZE_STDS
-    return targets
+    return bbox_transform(ex_rois, gt_rois[:, :4]).astype(np.float32, copy=False)
